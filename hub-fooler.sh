@@ -149,7 +149,10 @@ for ((; current; current--)); do
 
 	case "${level}" in
 	rock-star)
-		make_commit "${current_date}" "${current_file}.1"
+		end_cnt=1
+		for ((cnt = 1; cnt <= ${end_cnt}; cnt++)); do
+			make_commit "${current_date}" "${current_file}.${cnt}"
+		done
 		if [[ "${current_date%% *}" == "Fri" ]]; then
 			if [[ ${current} -le 2 ]]; then
 				break;
@@ -158,7 +161,8 @@ for ((; current; current--)); do
 		fi
 		;;
 	hero)
-		for ((cnt = 1; cnt <= $((1 + (RANDOM & 1) + (RANDOM & 1))); cnt++)); do
+		end_cnt=$((1 + (RANDOM & 1) + (RANDOM & 1)))
+		for ((cnt = 1; cnt <= ${end_cnt}; cnt++)); do
 			make_commit "${current_date}" "${current_file}.${cnt}"
 		done
 		if [[ "${current_date%% *}" == "Fri" ]]; then
@@ -169,7 +173,8 @@ for ((; current; current--)); do
 		fi
 		;;
 	untouchable)
-		for ((cnt = 1; cnt <= $((2 + (RANDOM & 3))); cnt++)); do
+		end_cnt=$((2 + (RANDOM & 3)))
+		for ((cnt = 1; cnt <= ${end_cnt}; cnt++)); do
 			make_commit "${current_date}" "${current_file}.${cnt}"
 		done
 		;;
