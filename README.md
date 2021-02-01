@@ -26,10 +26,12 @@ Usage: hub-fooler.sh [flags]
 Option flags:
   -h --help        - Show this help and exit.
   -v --verbose     - Verbose execution.
+  -g --debug       - Extra verbose execution.
 Level:
   -1 --rock-star   - One commit per day, M-F (default).
   -2 --hero        - One-three commits per day, M-F.
   -3 --untouchable - Two-five commits per day, everyday.
+Send bug reports to: Geoff Levand <geoff@infradead.org>.
 ```
 
 ## Results

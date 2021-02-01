@@ -9,16 +9,18 @@ usage() {
 	echo "Option flags:" >&2
 	echo "  -h --help        - Show this help and exit." >&2
 	echo "  -v --verbose     - Verbose execution." >&2
+	echo "  -g --debug       - Extra verbose execution." >&2
 	echo "Level:" >&2
 	echo "  -1 --rock-star   - One commit per day, M-F (default)." >&2
 	echo "  -2 --hero        - One-three commits per day, M-F." >&2
 	echo "  -3 --untouchable - Two-five commits per day, everyday." >&2
+	echo "Send bug reports to: Geoff Levand <geoff@infradead.org>." >&2
 	eval "${old_xtrace}"
 }
 
 process_opts() {
-	local short_opts="hv123"
-	local long_opts="help,verbose,rock-star,hero,untouchable"
+	local short_opts="hvg123"
+	local long_opts="help,verbose,debug,rock-star,hero,untouchable"
 
 	local opts
 	opts=$(getopt --options ${short_opts} --long ${long_opts} -n "${script_name}" -- "$@")
@@ -33,8 +35,13 @@ process_opts() {
 			shift
 			;;
 		-v | --verbose)
+			verbose=1
+			shift
+			;;
+		-g | --debug)
+			verbose=1
+			debug=1
 			set -x
-			#verbose=1
 			shift
 			;;
 		-1 | --rock-star)
@@ -87,13 +94,16 @@ on_exit() {
 make_commit() {
 	local date=${1}
 	local file=${2}
+	local name="${file##*/}"
 
-	echo "${FUNCNAME[0]}: ${current_date%% *} ${file}"
+	if [[ ${verbose} ]]; then
+		echo "${FUNCNAME[0]}: ${date%% *} ${name}"
+	fi
 
 	echo "${date}" > "${file}"
 	git add . > /dev/null
 	GIT_AUTHOR_DATE="${date}" GIT_COMMITTER_DATE="${date}" \
-		git commit -m "Add ${file}" > /dev/null
+		git commit -m "Add ${name}" > /dev/null
 }
 
 #===============================================================================
@@ -105,7 +115,7 @@ set -e
 
 process_opts "${@}"
 
-level="${level:-1}"
+level="${level:-rock-star}"
 
 if [[ ${usage} ]]; then
 	usage
