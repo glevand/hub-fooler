@@ -4,21 +4,21 @@ Create superstar repositories.
 
 ## Usage
 
-Fork the hub-fooler repo, run the fooler script, then push the fooler repo's master branch to a github branch:
+Fork the hub-fooler repo, run the fooler script, then push the fooler repo's master branch to a master branch in a github repo:
 
 ```
   ./hub-fooler.sh
-  git -C /tmp/hub-fooler.sh.QvQt/repo push git@github.com:${user}/hub-fooler.git master:fooler
-  rm -rf /tmp/hub-fooler.sh.QvQt
+  git -C ${hub_fooler_tmp_dir}/repo push git@github.com:${user}/fooler-out.git master
+  rm -rf ${hub_fooler_tmp_dir}
 ```
 
 To cleanup remove the remote github branch:
 
 ```
-  git push git@github.com:${user}/hub-fooler.git :fooler
+  git push git@github.com:${user}/fooler-out.git :master
 ```
 
-## Help
+## Usage
 
 ```
 hub-fooler.sh - Generate a superstar git repository.
@@ -37,3 +37,9 @@ Send bug reports to: Geoff Levand <geoff@infradead.org>.
 ## Results
 
 ![contributions](contributions.png)
+
+## License
+
+All files in the [hub-fooler project](https://github.com/glevand/hub-fooler), unless otherwise noted, are covered by an [MIT Plus License](https://github.com/glevand/hub-fooler/blob/master/mit-plus-license.txt).  The text of the license describes what usage is allowed.
+
+
