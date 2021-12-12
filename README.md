@@ -28,10 +28,12 @@ Option flags:
   -v --verbose     - Verbose execution.
   -g --debug       - Extra verbose execution.
 Level:
-  -1 --rock-star   - One commit per day, M-F (default).
-  -2 --hero        - One-three commits per day, M-F.
-  -3 --untouchable - Two-five commits per day, everyday.
-Send bug reports to: Geoff Levand <geoff@infradead.org>.
+  -1 --light-weight - One commit every few days.
+  -2 --rock-star    - One commit per day, M-F (default).
+  -3 --hero         - One-three commits per day, M-F.
+  -4 --untouchable  - Two-five commits per day, everyday.
+Info:
+  Project Home: https://github.com/glevand/hub-fooler
 ```
 
 ## Results
