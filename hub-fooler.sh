@@ -11,16 +11,17 @@ usage() {
 	echo "  -v --verbose     - Verbose execution." >&2
 	echo "  -g --debug       - Extra verbose execution." >&2
 	echo "Level:" >&2
-	echo "  -1 --rock-star   - One commit per day, M-F (default)." >&2
-	echo "  -2 --hero        - One-three commits per day, M-F." >&2
-	echo "  -3 --untouchable - Two-five commits per day, everyday." >&2
+	echo "  -1 --light-weight - One commit every few days." >&2
+	echo "  -2 --rock-star    - One commit per day, M-F (default)." >&2
+	echo "  -3 --hero         - One-three commits per day, M-F." >&2
+	echo "  -4 --untouchable  - Two-five commits per day, everyday." >&2
 	echo "Send bug reports to: Geoff Levand <geoff@infradead.org>." >&2
 	eval "${old_xtrace}"
 }
 
 process_opts() {
-	local short_opts="hvg123"
-	local long_opts="help,verbose,debug,rock-star,hero,untouchable"
+	local short_opts="hvg1234"
+	local long_opts="help,verbose,debug,light-weight,rock-star,hero,untouchable"
 
 	local opts
 	opts=$(getopt --options ${short_opts} --long ${long_opts} -n "${script_name}" -- "$@")
@@ -28,7 +29,7 @@ process_opts() {
 	eval set -- "${opts}"
 
 	while true ; do
-		#echo "${FUNCNAME[0]}: @${1}@ @${2}@"
+		# echo "${FUNCNAME[0]}: (${#}) '${*}'"
 		case "${1}" in
 		-h | --help)
 			usage=1
@@ -44,15 +45,19 @@ process_opts() {
 			set -x
 			shift
 			;;
-		-1 | --rock-star)
+		-1 | --light-weight)
+			level="light-weight"
+			shift
+			;;
+		-2 | --rock-star)
 			level="rock-star"
 			shift
 			;;
-		-2 | --hero)
+		-3 | --hero)
 			level="hero"
 			shift
 			;;
-		-3 | --untouchable)
+		-4 | --untouchable)
 			level="untouchable"
 			shift
 			;;
@@ -107,7 +112,8 @@ make_commit() {
 }
 
 #===============================================================================
-export PS4='\[\e[0;33m\]+ ${BASH_SOURCE##*/}:${LINENO}:(${FUNCNAME[0]:-"?"}):\[\e[0m\] '
+export PS4='\[\e[0;33m\]+ ${BASH_SOURCE##*/}:${LINENO}:(${FUNCNAME[0]:-main}):\[\e[0m\] '
+
 script_name="${0##*/}"
 
 trap "on_exit 'failed'" EXIT
@@ -158,6 +164,14 @@ for ((; current; current--)); do
 	#echo "${current_date%% *}" >&2
 
 	case "${level}" in
+	light-weight)
+		end_cnt=1
+		for ((cnt = 1; cnt <= ${end_cnt}; cnt++)); do
+			make_commit "${current_date}" "${current_file}.${cnt}"
+		done
+		days_off=$((1 + (RANDOM & 3)))
+		((current -= days_off))
+		;;
 	rock-star)
 		end_cnt=1
 		for ((cnt = 1; cnt <= ${end_cnt}; cnt++)); do
