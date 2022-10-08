@@ -4,18 +4,22 @@ usage() {
 	local old_xtrace
 	old_xtrace="$(shopt -po xtrace || :)"
 	set +o xtrace
-	echo "${script_name} - Generate a superstar git repository." >&2
-	echo "Usage: ${script_name} [flags]" >&2
-	echo "Option flags:" >&2
-	echo "  -h --help        - Show this help and exit." >&2
-	echo "  -v --verbose     - Verbose execution." >&2
-	echo "  -g --debug       - Extra verbose execution." >&2
-	echo "Level:" >&2
-	echo "  -1 --light-weight - One commit every few days." >&2
-	echo "  -2 --rock-star    - One commit per day, M-F (default)." >&2
-	echo "  -3 --hero         - One-three commits per day, M-F." >&2
-	echo "  -4 --untouchable  - Two-five commits per day, everyday." >&2
-	echo "Send bug reports to: Geoff Levand <geoff@infradead.org>." >&2
+
+	{
+		echo "${script_name} - Generate a superstar git repository."
+		echo "Usage: ${script_name} [flags]"
+		echo "Option flags:"
+		echo "  -h --help        - Show this help and exit."
+		echo "  -v --verbose     - Verbose execution."
+		echo "  -g --debug       - Extra verbose execution."
+		echo "Level:"
+		echo "  -1 --light-weight - One commit every few days."
+		echo "  -2 --rock-star    - One commit per day, M-F (default)."
+		echo "  -3 --hero         - One-three commits per day, M-F."
+		echo "  -4 --untouchable  - Two-five commits per day, everyday."
+		echo "Info:"
+		print_project_info
+	} >&2
 	eval "${old_xtrace}"
 }
 
@@ -63,12 +67,7 @@ process_opts() {
 			;;
 		--)
 			shift
-			if [[ ${*} ]]; then
-				set +o xtrace
-				echo "${script_name}: ERROR: Got extra args: '${*}'" >&2
-				usage
-				exit 1
-			fi
+			extra_args="${*}"
 			break
 			;;
 		*)
@@ -81,19 +80,60 @@ process_opts() {
 
 on_exit() {
 	local result=${1}
+	local sec=${SECONDS}
 
-	if [[ ${need_cleanup} && -d ${tmp_dir} ]]; then
+	if [[ ${need_cleanup} && -d "${tmp_dir}" ]]; then
 		rm -rf "${tmp_dir}"
 	fi
 
-	local end_sec="${SECONDS}"
-	local end_min="$((end_sec / 60)).$(((end_sec * 100) / 60))"
-
 	set +x
 	if [[ ! ${need_cleanup} ]]; then
-		echo "${script_name}: INFO: resuls in '${out_dir}'." >&2
+		echo "${script_name}: INFO: Results in '${out_dir}'." >&2
+		echo "${script_name}: INFO: ${counter} commits." >&2
 	fi
-	echo "${script_name}: Done: ${result}, ${end_sec} seconds (${end_min} min)." >&2
+	echo "${script_name}: Done: ${result}, ${sec} sec ($(sec_to_min "${sec}") min)." >&2
+}
+
+on_err() {
+	local f_name=${1}
+	local line_no=${2}
+	local err_no=${3}
+
+	echo "${script_name}: ERROR: function=${f_name}, line=${line_no}, result=${err_no}" >&2
+	exit "${err_no}"
+}
+
+print_project_banner() {
+	echo "${script_name} (@PACKAGE_NAME@) - ${start_time}"
+}
+
+print_project_info() {
+	echo "  @PACKAGE_NAME@ ${script_name}"
+	echo "  Version: @PACKAGE_VERSION@"
+	echo "  Project Home: @PACKAGE_URL@"
+}
+
+sec_to_min() {
+	local sec=${1}
+	local min="$(( sec / 60 ))"
+	local frac_10="$(( (sec - min * 60) * 10 / 60 ))"
+	local frac_100="$(( (sec - min * 60) * 100 / 60 ))"
+
+	if (( frac_10 != 0 )); then
+		frac_10=''
+	fi
+
+	echo "${min}.${frac_10}${frac_100}"
+}
+
+check_program() {
+	local prog="${1}"
+	local path="${2}"
+
+	if ! test -x "$(command -v "${path}")"; then
+		echo "${script_name}: ERROR: Please install '${prog}'." >&2
+		exit 1
+	fi
 }
 
 make_commit() {
@@ -116,12 +156,27 @@ export PS4='\[\e[0;33m\]+ ${BASH_SOURCE##*/}:${LINENO}:(${FUNCNAME[0]:-main}):\[
 
 script_name="${0##*/}"
 
-trap "on_exit 'failed'" EXIT
-set -e
+SECONDS=0
+start_time="$(date +%Y.%m.%d-%H.%M.%S)"
+
+trap 'on_exit "Failed"' EXIT
+trap 'on_err ${FUNCNAME[0]:-main} ${LINENO} ${?}' ERR
+trap 'on_err SIGUSR1 ? 3' SIGUSR1
+
+set -eE
+set -o pipefail
+set -o nounset
+
+usage=''
+verbose=''
+debug=''
+level='rock-star'
+need_cleanup=1
+tmp_dir=''
+
+print_project_banner >&2
 
 process_opts "${@}"
-
-level="${level:-rock-star}"
 
 if [[ ${usage} ]]; then
 	usage
@@ -129,14 +184,17 @@ if [[ ${usage} ]]; then
 	exit 0
 fi
 
-SECONDS=0
-
-if ! test -x "$(command -v git)"; then
-	echo "${script_name}: ERROR: Please install 'git'." >&2
+if [[ ${extra_args} ]]; then
+	set +o xtrace
+	echo "${script_name}: ERROR: Got extra args: '${extra_args}'" >&2
+	usage
 	exit 1
 fi
 
-for ((current = 365 + 7; current; current--)); do
+git="${git:-git}"
+check_program 'git' "${git}"
+
+for (( current = 365 + 7; current; current-- )); do
 	day="$(date  --date="${current} days ago" +%a)"
 	#echo "@${day}@"
 	if [[ "${day}" == 'Mon' ]]; then
@@ -144,7 +202,6 @@ for ((current = 365 + 7; current; current--)); do
 	fi
 done
 
-need_cleanup=1
 tmp_dir="$(mktemp --tmpdir --directory "${script_name}.XXXX")"
 
 out_dir="${tmp_dir}/repo"
@@ -152,54 +209,50 @@ out_dir="${tmp_dir}/repo"
 mkdir -p "${out_dir}"
 
 cd "${out_dir}"
-git init
+git init -q -b master
 
-current_date="$(date  --date="${current} days ago")"
+current_date="$(date --date="${current} days ago")"
 echo "${script_name}: start: ${current_date}" >&2
 
-for ((; current; current--)); do
+counter='0'
+
+for (( ; current > 0; current-- )); do
 	current_file="${out_dir}/fooler.${current}"
 	current_date="$(date  --date="${current} days ago")"
 
 	#echo "${current_date%% *}" >&2
+	#echo "current = '${current}'" >&2
+	#echo "current_file = '${current_file}'" >&2
 
 	case "${level}" in
 	light-weight)
-		end_cnt=1
-		for ((cnt = 1; cnt <= ${end_cnt}; cnt++)); do
-			make_commit "${current_date}" "${current_file}.${cnt}"
-		done
+		make_commit "${current_date}" "${current_file}"
+		counter="$((counter + 1))"
 		days_off=$((1 + (RANDOM & 3)))
-		((current -= days_off))
+		(( current -= days_off )) || :
 		;;
 	rock-star)
-		end_cnt=1
-		for ((cnt = 1; cnt <= ${end_cnt}; cnt++)); do
-			make_commit "${current_date}" "${current_file}.${cnt}"
-		done
+		make_commit "${current_date}" "${current_file}"
+		counter="$((counter + 1))"
 		if [[ "${current_date%% *}" == "Fri" ]]; then
-			if [[ ${current} -le 2 ]]; then
-				break;
-			fi
-			((current -= 2))
+			(( current -= 2 )) || :
 		fi
 		;;
 	hero)
 		end_cnt=$((1 + (RANDOM & 1) + (RANDOM & 1)))
 		for ((cnt = 1; cnt <= ${end_cnt}; cnt++)); do
 			make_commit "${current_date}" "${current_file}.${cnt}"
+			counter="$((counter + 1))"
 		done
 		if [[ "${current_date%% *}" == "Fri" ]]; then
-			if [[ ${current} -le 2 ]]; then
-				break;
-			fi
-			((current -= 2))
+			(( current -= 2 )) || :
 		fi
 		;;
 	untouchable)
 		end_cnt=$((2 + (RANDOM & 3)))
-		for ((cnt = 1; cnt <= ${end_cnt}; cnt++)); do
+		for (( cnt = 1; cnt <= ${end_cnt}; cnt++ )); do
 			make_commit "${current_date}" "${current_file}.${cnt}"
+			counter="$((counter + 1))"
 		done
 		;;
 	*)
@@ -209,7 +262,7 @@ for ((; current; current--)); do
 	esac
 done
 
-unset need_cleanup
+need_cleanup=''
 
-trap "on_exit 'Success'" EXIT
+trap 'on_exit "Success"' EXIT
 exit 0
