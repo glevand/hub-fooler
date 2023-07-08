@@ -151,6 +151,24 @@ make_commit() {
 		git commit -m "Add ${name}" > /dev/null
 }
 
+make_readme() {
+	local date="${1}"
+	local dir="${2}"
+
+	if [[ ${verbose} ]]; then
+		echo "${FUNCNAME[0]}: ${date}"
+	fi
+
+	mkdir -p "${dir}"
+	echo 'Output of hub-fooler' > "${dir}/README.md"
+	echo >> "${dir}/README.md"
+	print_project_info >> "${dir}/README.md"
+
+	git add . > /dev/null
+	GIT_AUTHOR_DATE="${date}" GIT_COMMITTER_DATE="${date}" \
+		git commit -m 'Add README' > /dev/null
+}
+
 #===============================================================================
 export PS4='\[\e[0;33m\]+ ${BASH_SOURCE##*/}:${LINENO}:(${FUNCNAME[0]:-main}):\[\e[0m\] '
 
@@ -213,6 +231,8 @@ git init -q -b master
 
 current_date="$(date --date="${current} days ago")"
 echo "${script_name}: start: ${current_date}" >&2
+
+make_readme "${current_date}" "${out_dir}"
 
 counter='0'
 
