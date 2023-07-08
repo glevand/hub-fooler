@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # 2nd fool the fool helper.
-# Usage: git rebase --exec f-helper.sh $(git rev-list --max-parents=0 --children HEAD | cut -d ' ' -f2) 
+# Usage: git rebase --exec f2-helper.sh $(git rev-list --max-parents=0 --children HEAD | cut -d ' ' -f2) 
 
 on_exit() {
 	if [[ ${debug} || ${verbose} ]]; then
