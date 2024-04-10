@@ -9,14 +9,16 @@ usage() {
 		echo "${script_name} - Generate a superstar git repository."
 		echo "Usage: ${script_name} [flags]"
 		echo "Option flags:"
+		echo "  -s --start       - Start date. Default: '${start_date}'."
+		echo "  -e --end         - End date. Default: '${end_date}'."
 		echo "  -h --help        - Show this help and exit."
 		echo "  -v --verbose     - Verbose execution."
 		echo "  -g --debug       - Extra verbose execution."
 		echo "Level:"
 		echo "  -1 --light-weight - One commit every few days."
 		echo "  -2 --rock-star    - One commit per day, M-F (default)."
-		echo "  -3 --hero         - One-three commits per day, M-F."
-		echo "  -4 --untouchable  - Two-five commits per day, everyday."
+		echo "  -3 --hero         - One to three commits per day, M-F."
+		echo "  -4 --untouchable  - Two to five commits per day, everyday."
 		echo "Info:"
 		print_project_info
 	} >&2
@@ -24,8 +26,8 @@ usage() {
 }
 
 process_opts() {
-	local short_opts="hvg1234"
-	local long_opts="help,verbose,debug,light-weight,rock-star,hero,untouchable"
+	local short_opts='s:e:hvg1234'
+	local long_opts='start:,end:,help,verbose,debug,light-weight,rock-star,hero,untouchable'
 
 	local opts
 	opts=$(getopt --options ${short_opts} --long ${long_opts} -n "${script_name}" -- "$@")
@@ -35,6 +37,14 @@ process_opts() {
 	while true ; do
 		# echo "${FUNCNAME[0]}: (${#}) '${*}'"
 		case "${1}" in
+		-s | --start)
+			start_date="${2}"
+			shift 2
+			;;
+		-e | --end)
+			end_date="${2}"
+			shift 2
+			;;
 		-h | --help)
 			usage=1
 			shift
@@ -141,14 +151,14 @@ make_commit() {
 	local file=${2}
 	local name="${file##*/}"
 
-	if [[ ${verbose} ]]; then
-		echo "${FUNCNAME[0]}: ${date%% *} ${name}"
-	fi
+# 	if [[ ${verbose} ]]; then
+# 		echo "${FUNCNAME[0]}: ${date%% *} ${name}"
+# 	fi
 
-	echo "${date}" > "${file}"
+	echo "${date}" >> "${file}"
 	git add . > /dev/null
 	GIT_AUTHOR_DATE="${date}" GIT_COMMITTER_DATE="${date}" \
-		git commit -m "Add ${name}" > /dev/null
+		git commit -m "Add '${date}'" > /dev/null
 }
 
 make_readme() {
@@ -185,6 +195,8 @@ set -eE
 set -o pipefail
 set -o nounset
 
+start_date=''
+end_date=''
 usage=''
 verbose=''
 debug=''
@@ -212,9 +224,69 @@ fi
 git="${git:-git}"
 check_program 'git' "${git}"
 
-for (( current = 365 + 7; current; current-- )); do
-	day="$(date  --date="${current} days ago" +%a)"
-	#echo "@${day}@"
+today_day="$(( $(date +%s) / 86400 ))"
+
+date="${date:-date}"
+check_program 'date' "${date}"
+
+if [[ ! ${start_date} && ${end_date} ]]; then
+	set +o xtrace
+	echo "${script_name}: ERROR: Got --end without --start" >&2
+	usage
+	exit 1
+fi
+
+if [[ ${verbose} && ${start_date} && ${end_date} ]]; then
+	echo "Got start_date = ${start_date}"
+	echo "Got end_date   = ${end_date}"
+fi
+
+if [[ ${start_date} && ! ${end_date} ]]; then
+	if [[ ${verbose} ]]; then
+		echo "Got start_date = ${start_date}"
+	fi
+
+	start_sec="$( date +%s --date="${start_date}" )"
+	end_sec="$(( ${start_sec} + (365 * 86400) ))"
+	end_date="$(date --date="@${end_sec}" -Idate)"
+fi
+
+if [[ ! ${start_date} && ! ${end_date} ]]; then
+	if [[ ${verbose} ]]; then
+		echo 'Got none'
+	fi
+
+	today_sec="$(( $(date +%s) ))"
+	end_date="$(date --date="@${today_sec}" -Idate)"
+	start_sec="$(( ${today_sec} - (365 * 86400) ))"
+	start_date="$(date --date="@${start_sec}" -Idate)"
+fi
+
+start_day="$(( ${today_day} - ($(date +%s -d "${start_date}") / 86400) ))"
+end_day="$((  ${today_day} - ($(date +%s -d "${end_date}") / 86400) ))"
+
+days_diff="$(( ${start_day} - ${end_day} ))"
+
+if [[ ${verbose} ]]; then
+	echo "start_date = ${start_date}"
+	echo "end_date   = ${end_date}"
+	echo "today_day = ${today_day}"
+	echo "start_day = ${start_day}"
+	echo "end_day   = ${end_day}"
+	echo "days_diff  = ${days_diff}"
+fi
+
+if (( ${days_diff} <= 0 )); then
+	set +o xtrace
+	echo "${script_name}: ERROR: --end is before --start" >&2
+	exit 1
+fi
+
+for (( current_day = ${start_day} - 7; current_day; current_day++ )); do
+	day="$(date  --date="${current_day} days ago" +%a)"
+	if [[ ${verbose} ]]; then
+		echo "@${current_day} = ${day}@"
+	fi
 	if [[ "${day}" == 'Mon' ]]; then
 		break
 	fi
@@ -223,55 +295,55 @@ done
 tmp_dir="$(mktemp --tmpdir --directory "${script_name}.XXXX")"
 
 out_dir="${tmp_dir}/repo"
+out_file="${out_dir}/fooler-out"
 
 mkdir -p "${out_dir}"
 
 cd "${out_dir}"
 git init -q -b master
 
-current_date="$(date --date="${current} days ago")"
+current_date="$(date --date="${current_day} days ago")"
 echo "${script_name}: start: ${current_date}" >&2
 
 make_readme "${current_date}" "${out_dir}"
 
 counter='0'
 
-for (( ; current > 0; current-- )); do
-	current_file="${out_dir}/fooler.${current}"
-	current_date="$(date  --date="${current} days ago")"
+for (( ; current_day >= end_day; current_day-- )); do
+	current_date="$(date  --date="${current_day} days ago")"
 
-	#echo "${current_date%% *}" >&2
-	#echo "current = '${current}'" >&2
-	#echo "current_file = '${current_file}'" >&2
+	if [[ ${verbose} ]]; then
+		echo "current_day = ${current_day} (${current_date%% *})" >&2
+	fi
 
 	case "${level}" in
 	light-weight)
-		make_commit "${current_date}" "${current_file}"
+		make_commit "${current_date}" "${out_file}"
 		counter="$((counter + 1))"
 		days_off=$((1 + (RANDOM & 3)))
-		(( current -= days_off )) || :
+		(( current_day -= days_off )) || :
 		;;
 	rock-star)
-		make_commit "${current_date}" "${current_file}"
+		make_commit "${current_date}" "${out_file}"
 		counter="$((counter + 1))"
 		if [[ "${current_date%% *}" == "Fri" ]]; then
-			(( current -= 2 )) || :
+			(( current_day -= 2 )) || :
 		fi
 		;;
 	hero)
 		end_cnt=$((1 + (RANDOM & 1) + (RANDOM & 1)))
 		for ((cnt = 1; cnt <= ${end_cnt}; cnt++)); do
-			make_commit "${current_date}" "${current_file}.${cnt}"
+			make_commit "${current_date}" "${out_file}.${cnt}"
 			counter="$((counter + 1))"
 		done
 		if [[ "${current_date%% *}" == "Fri" ]]; then
-			(( current -= 2 )) || :
+			(( current_day -= 2 )) || :
 		fi
 		;;
 	untouchable)
 		end_cnt=$((2 + (RANDOM & 3)))
 		for (( cnt = 1; cnt <= ${end_cnt}; cnt++ )); do
-			make_commit "${current_date}" "${current_file}.${cnt}"
+			make_commit "${current_date}" "${out_file}.${cnt}"
 			counter="$((counter + 1))"
 		done
 		;;
@@ -281,6 +353,9 @@ for (( ; current > 0; current-- )); do
 		;;
 	esac
 done
+
+current_date="$(date --date="${current_day} days ago")"
+echo "${script_name}: end:   ${current_date}" >&2
 
 need_cleanup=''
 
